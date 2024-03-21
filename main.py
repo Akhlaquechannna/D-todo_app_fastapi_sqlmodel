@@ -1,15 +1,45 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import Optional
+from dotenv import load_dotenv
+import os
+from sqlmodel import create_engine, SQLModel
+from contextlib import asynccontextmanager
 
 
-server = FastAPI()
+
+load_dotenv()
+
+
+
 
 class Todo (BaseModel):
     id: Optional[int] = None
     name: str 
     description: Optional[str] = None
+print(os.environ.get("DATABASE_URL"))
+connection_string = str(os.environ.get("DATABASE_URL")).replace(
+    "postgresql", "postgresql+psycopg"
+)
 
+engine = create_engine(
+    connection_string, connect_args={"sslmode": "require"}, pool_recycle=300
+)
+
+def create_db_and_tables():
+    SQLModel.metadata.create_all(engine)
+# The first part of the function, before the yield, will
+# be executed before the application starts
+@asynccontextmanager
+async def lifespan(server: FastAPI):
+    print("Creating tables..")
+    create_db_and_tables()
+    yield
+
+server = FastAPI(lifespan = lifespan)
+
+
+# print(connection_string)
 todos: list [Todo] = []
 
 
@@ -40,6 +70,8 @@ def update_todo(id: int,data:Todo):
         else:
             return{f"message: {id} not found"}
     return{f"message: {id} has been successfully updated"}
+
+
     
                 
     # todos.pop(id)
