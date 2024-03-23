@@ -1,9 +1,9 @@
 from fastapi import FastAPI
-from pydantic import BaseModel
+# from pydantic import BaseModel
 from typing import Optional
 from dotenv import load_dotenv
 import os
-from sqlmodel import create_engine, SQLModel
+from sqlmodel import create_engine, SQLModel, Session, Field, select
 from contextlib import asynccontextmanager
 
 
@@ -13,8 +13,8 @@ load_dotenv()
 
 
 
-class Todo (BaseModel):
-    id: Optional[int] = None
+class Todo (SQLModel,table = True):
+    id: Optional[int] = Field(default = None, primary_key = True)
     name: str 
     description: Optional[str] = None
 print(os.environ.get("DATABASE_URL"))
@@ -40,16 +40,25 @@ server = FastAPI(lifespan = lifespan)
 
 
 # print(connection_string)
-todos: list [Todo] = []
+# todos: list [Todo] = []
 
 
 
 @server.get("/api/v1/get_todos")
 def get_all_todos():
-    return todos
+    with Session(engine) as session:
+     statement = select(Todo)
+     todos = session.exec(statement).all()
+     print(todos)
+     return todos
 
 @server.post("/api/v1/add_todo")
 def add_todo(todo: Todo):
+    with Session(engine) as session:
+        session.add(todo)
+        session.commit()
+        session.refresh(todo)
+
     todos.append(todo)
     return{"message: Todo added succesfully"}
 
